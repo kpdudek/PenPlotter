@@ -4,3 +4,7 @@ __pycache__/
 .vscode/
 .VSCodeCounter/
 *.out
+.catkin_tools/
+build/
+devel/
+logs/
