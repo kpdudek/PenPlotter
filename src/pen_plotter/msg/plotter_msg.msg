@@ -5,3 +5,5 @@ int8 servo_angle
 float64 setpoint_x_angle
 
 float64 setpoint_y_angle
+
+int8 set_work_zero
