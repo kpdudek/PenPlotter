@@ -8,8 +8,8 @@ class GCodeGenerator(FilePaths):
         super().__init__()
     
     def retract_endpoints(self,filename):
-        tmp_file = open(f'{self.user_path}gcode\\tmp','w')
-        gcode = open(f'{self.user_path}gcode\\{filename}.nc','r')
+        tmp_file = open(f'{self.user_path}gcode/tmp','w')
+        gcode = open(f'{self.user_path}gcode/{filename}.nc','r')
         
         lines = gcode.readlines()
         print(f'Lines: {lines}')
@@ -26,14 +26,14 @@ class GCodeGenerator(FilePaths):
         tmp_file.close()
         gcode.close()
 
-        os.remove(f'{self.user_path}gcode\\{filename}.nc')
-        os.rename(f'{self.user_path}gcode\\tmp',f'{self.user_path}gcode\\{filename}.nc')
+        os.remove(f'{self.user_path}gcode/{filename}.nc')
+        os.rename(f'{self.user_path}gcode/tmp',f'{self.user_path}gcode/{filename}.nc')
     
     def polygon(self,n,filename):
         theta = 0.0
         d_theta = (2*pi)/float(n)
 
-        fp = open(f'{self.user_path}gcode\\{filename}.nc','w')
+        fp = open(f'{self.user_path}gcode/{filename}.nc','w')
         for idx in range(0,n):
             x = ((cos(theta)*2.5)+3)*57.2957795
             y = ((sin(theta)*2.5)+3)*57.2957795
@@ -45,6 +45,7 @@ class GCodeGenerator(FilePaths):
 def main():
     gcg = GCodeGenerator()
     gcg.polygon(40,'circle_40')
+    gcg.polygon(8,'octogon')
 
 if __name__=='__main__':
     main()

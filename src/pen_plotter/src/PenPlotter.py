@@ -29,7 +29,7 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors):
     def __init__(self,screen):
         super().__init__()
         uic.loadUi(f'{self.user_path}ui/main_window.ui',self)
-        self.console.setAutoScroll(True) 
+        # self.console.setAutoScroll(True) 
 
         self.connected = False
 
@@ -46,6 +46,7 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors):
         self.move_to_pose_button.clicked.connect(self.send_setpoint)
         self.zero_button.clicked.connect(self.zero_setpoint)
         self.run_program_button.clicked.connect(self.run_gcode)
+        self.set_work_zero_button.clicked.connect(self.set_work_zero)
 
         self.canvas = CanvasControl()
         self.actionCanvas.triggered.connect(self.launch_canvas)
@@ -81,8 +82,14 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors):
             self.plotter_feedback = data
             self.x_pose.display(data.x_angle)
             self.y_pose.display(data.y_angle)
+            self.d_pose.display(data.servo_angle)
         except:
             log('Subscriber call terminated!')
+    
+    def set_work_zero(self):
+        self.plotter_cmd.set_work_zero = 1
+        self.plotter_cmdr.publish(self.plotter_cmd)
+        self.plotter_cmd.set_work_zero = 0
 
     def send_setpoint(self):
         if not self.connected:
@@ -103,6 +110,9 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors):
 
         self.plotter_cmdr.publish(self.plotter_cmd)
 
+        log(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")
+        self.console.addItem(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")
+
     def zero_setpoint(self):
         if not self.connected:
             log('Connect to arduino first!')
@@ -119,6 +129,9 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors):
         self.plotter_cmd.setpoint_y_angle = 0.0
 
         self.plotter_cmdr.publish(self.plotter_cmd)
+
+        log(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")
+        self.console.addItem(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")
 
     def reboot_teensy(self):
         pass
@@ -180,12 +193,17 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors):
 
             self.plotter_cmdr.publish(self.plotter_cmd)
 
+            log(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")
+            self.console.addItem(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")
+
             while not self.setpoint_reached():
                 pass
+            self.console.setCurrentRow(self.console.count()-1)
 
         self.console.addItem('Done running GCode!')
         log('Done running GCode!')
-        self.gcode_file_list.setCurrentRow(0)            
+        self.gcode_file_list.setCurrentRow(0)
+             
     
     def run_gcode(self):
         if not self.connected:
