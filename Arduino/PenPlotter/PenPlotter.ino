@@ -96,7 +96,7 @@ int setpoint_reached_y = 0;
 
 int loop_count = 0;
 Servo pen_servo;
-int servo_angle,retract_angle = 15, draw_angle=0;
+int servo_angle = -1, retract_angle = 15, draw_angle=0;
 
 ///////////////////////////////////////////////////////////////////////////
 // ROS declarations
@@ -111,6 +111,15 @@ void plotter_command_callback(const pen_plotter::plotter_msg &msg_data){
       pen_servo.write(msg_data.servo_angle);
     }
     servo_angle = msg_data.servo_angle;
+
+    if (msg_data.set_work_zero == 1){
+      x_axis_angle = 0.;
+      y_axis_angle = 0.;
+      setpoint_x = 0.;
+      setpoint_y = 0.;
+      Enc1.write(0);
+      Enc2.write(0);
+    }
 }
 
 pen_plotter::plotter_msg cmd_msg;
@@ -237,6 +246,7 @@ void loop() {
     if (t-t_old_print > print_freq){
       feedback.x_angle = x_axis_angle;
       feedback.y_angle = y_axis_angle;
+      feedback.servo_angle = servo_angle;
       feedback.at_goal = state;
       feedback_publisher.publish(&feedback);
       t_old_print = t;
