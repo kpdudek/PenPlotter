@@ -33,7 +33,7 @@ float fuzzy_equal = .001;
 // Variable declarations
 ///////////////////////////////////////////////////////////////////////////
 // Varables used to store time both current and 'stopwatch' times
-unsigned long int t = 0;
+unsigned long int t = 0, t_prev = 0;
 unsigned long int motor_freq = 1000, t_old_motor = 0;
 unsigned long int print_freq = 100000, t_old_print = 0;
 
@@ -86,7 +86,7 @@ class Motor{
 // Object declarations
 ///////////////////////////////////////////////////////////////////////////
 Motor x_axis_motor = Motor(x_axis_pin_CW,x_axis_pin_CCW);
-float x_axis_angle = 0.;
+float x_axis_angle = 0., prev_x_angle = 0.;
 float setpoint_x = 0.0, tol_x = 0.75;
 float prev_setpoint_x = 0.0;
 float interp_val_x = 0.0;
@@ -94,18 +94,23 @@ float via_point_x = 0.0;
 int setpoint_reached_x = 0, via_reached_x = 0;
 
 Motor y_axis_motor = Motor(y_axis_pin_CW,y_axis_pin_CCW);
-float y_axis_angle = 0.;
+float y_axis_angle = 0., prev_y_angle = 0.;
 float setpoint_y = 0.0, tol_y = 0.75;
 float prev_setpoint_y = 0.0;
 float interp_val_y = 0.0;
 float via_point_y = 0.0;
 int setpoint_reached_y = 0, via_reached_y = 0;
 
-int
-
-int loop_count = 0;
 Servo pen_servo;
 int servo_angle = -1, retract_angle = 15, draw_angle=0, clearance_angle = 70;
+
+char move_type[2]; 
+int loop_count = 0;
+int state = 0, stop_signal = 0;
+int run_once = 0;
+int state_print_count = 0;
+int max_speed = 100, x_speed = 85, y_speed = 85; 
+int missed_packets = 0;
 
 ///////////////////////////////////////////////////////////////////////////
 // ROS declarations
@@ -115,6 +120,14 @@ ros::NodeHandle nh;
 void plotter_command_callback(const pen_plotter::plotter_msg &msg_data){
     setpoint_x = msg_data.setpoint_x_angle;
     setpoint_y = msg_data.setpoint_y_angle;
+
+    strcpy(move_type,msg_data.move_type);
+    
+    max_speed = msg_data.max_speed;
+    x_speed = max_speed;
+    y_speed = max_speed;
+    
+    stop_signal = msg_data.stop;
 
     if (msg_data.servo_angle != servo_angle){
       pen_servo.write(msg_data.servo_angle);
@@ -162,25 +175,10 @@ void setup() {
   nh.advertise(feedback_publisher);
 
 }
-int missed_packets = 0;
 
 ///////////////////////////////////////////////////////////////////////////
 // Loop
 ///////////////////////////////////////////////////////////////////////////
-
-int state = 0;
-int run_once = 0;
-int state_print_count = 0;
-int x_speed = 85, y_speed = 85; 
-
-void blink_red(void){
-  for (int i=0;i<5;i++){
-    digitalWrite(red_light,LOW);
-    delay(100);
-    digitalWrite(red_light,HIGH);
-    delay(100);
-  }
-}
 void loop() {
   if (!Serial){
     x_axis_motor.stop_now();
@@ -198,17 +196,17 @@ void loop() {
     }
     run_once = 0;
   }
-  else{
-    t = micros();
-    newPosition1 = Enc1.read();
-    newPosition2 = Enc2.read();
-
+  else if (stop_signal==0){
     if(run_once == 0){
       digitalWrite(red_light,LOW);
       digitalWrite(blue_light,HIGH);
       run_once = 1;
     }
     
+    t = micros();
+    newPosition1 = Enc1.read();
+    newPosition2 = Enc2.read();
+
     if (newPosition1 != oldPosition1) {
         oldPosition1 = newPosition1;
         x_axis_angle = 360.*(float(newPosition1)/(12.*120.));
@@ -291,12 +289,35 @@ void loop() {
     if (t-t_old_print > print_freq){
       feedback.x_angle = x_axis_angle;
       feedback.y_angle = y_axis_angle;
+      feedback.x_speed = x_speed;
+      feedback.y_speed = y_speed;
       feedback.servo_angle = servo_angle;
       feedback.at_goal = state;
       feedback_publisher.publish(&feedback);
       t_old_print = t;
     }
-    
+
+    prev_x_angle = x_axis_angle;
+    prev_y_angle = y_axis_angle;
+    t_prev = t;
     nh.spinOnce();
+  }
+
+  else{
+    x_axis_motor.stop_now();
+    y_axis_motor.stop_now();
+    pen_servo.write(clearance_angle);
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////
+// Helper Functions
+///////////////////////////////////////////////////////////////////////////
+void blink_red(void){
+  for (int i=0;i<5;i++){
+    digitalWrite(red_light,LOW);
+    delay(100);
+    digitalWrite(red_light,HIGH);
+    delay(100);
   }
 }
