@@ -73,6 +73,8 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors,PlotterLogger):
         
         rospy.init_node('PenPlotterController', anonymous='True')
         self.plotter_cmd = plotter_msg()
+        self.plotter_cmd.max_speed = 100
+
         self.plotter_feedback = plotter_feedback()
 
         self.plotter_cmdr = rospy.Publisher('/plotter_command', plotter_msg, queue_size = 1)
@@ -134,7 +136,7 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors,PlotterLogger):
         self.plotter_cmd.servo_angle = int(draw)
         self.plotter_cmd.setpoint_x_angle = float(x)
         self.plotter_cmd.setpoint_y_angle = float(y)
-
+        self.plotter_cmd.max_speed = self.speed_val.value()
         self.plotter_cmdr.publish(self.plotter_cmd)
 
         self.log(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")
@@ -149,7 +151,7 @@ class PlotterWindow(QMainWindow,FilePaths,ElementColors,PlotterLogger):
         self.plotter_cmd.servo_angle = int(draw)
         self.plotter_cmd.setpoint_x_angle = 0.0
         self.plotter_cmd.setpoint_y_angle = 0.0
-
+        self.plotter_cmd.max_speed = self.speed_val.value()
         self.plotter_cmdr.publish(self.plotter_cmd)
 
         self.log(f"Sent command: {self.plotter_cmd.move_type} X{self.plotter_cmd.setpoint_x_angle} Y{self.plotter_cmd.setpoint_y_angle} D{self.plotter_cmd.servo_angle}")

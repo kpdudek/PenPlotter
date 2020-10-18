@@ -2,10 +2,10 @@ float64 x_angle
 
 float64 y_angle
 
-int8 servo_angle
+int32 servo_angle
 
-int8 at_goal
+int32 at_goal
 
-int8 x_speed
+int32 x_speed
 
-int8 y_speed
+int32 y_speed
