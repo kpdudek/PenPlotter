@@ -20,6 +20,10 @@ namespace pen_plotter
       _setpoint_x_angle_type setpoint_x_angle;
       typedef float _setpoint_y_angle_type;
       _setpoint_y_angle_type setpoint_y_angle;
+      typedef int8_t _max_speed_type;
+      _max_speed_type max_speed;
+      typedef int8_t _stop_type;
+      _stop_type stop;
       typedef int8_t _set_work_zero_type;
       _set_work_zero_type set_work_zero;
 
@@ -28,6 +32,8 @@ namespace pen_plotter
       servo_angle(0),
       setpoint_x_angle(0),
       setpoint_y_angle(0),
+      max_speed(0),
+      stop(0),
       set_work_zero(0)
     {
     }
@@ -49,6 +55,20 @@ namespace pen_plotter
       offset += sizeof(this->servo_angle);
       offset += serializeAvrFloat64(outbuffer + offset, this->setpoint_x_angle);
       offset += serializeAvrFloat64(outbuffer + offset, this->setpoint_y_angle);
+      union {
+        int8_t real;
+        uint8_t base;
+      } u_max_speed;
+      u_max_speed.real = this->max_speed;
+      *(outbuffer + offset + 0) = (u_max_speed.base >> (8 * 0)) & 0xFF;
+      offset += sizeof(this->max_speed);
+      union {
+        int8_t real;
+        uint8_t base;
+      } u_stop;
+      u_stop.real = this->stop;
+      *(outbuffer + offset + 0) = (u_stop.base >> (8 * 0)) & 0xFF;
+      offset += sizeof(this->stop);
       union {
         int8_t real;
         uint8_t base;
@@ -84,6 +104,22 @@ namespace pen_plotter
       union {
         int8_t real;
         uint8_t base;
+      } u_max_speed;
+      u_max_speed.base = 0;
+      u_max_speed.base |= ((uint8_t) (*(inbuffer + offset + 0))) << (8 * 0);
+      this->max_speed = u_max_speed.real;
+      offset += sizeof(this->max_speed);
+      union {
+        int8_t real;
+        uint8_t base;
+      } u_stop;
+      u_stop.base = 0;
+      u_stop.base |= ((uint8_t) (*(inbuffer + offset + 0))) << (8 * 0);
+      this->stop = u_stop.real;
+      offset += sizeof(this->stop);
+      union {
+        int8_t real;
+        uint8_t base;
       } u_set_work_zero;
       u_set_work_zero.base = 0;
       u_set_work_zero.base |= ((uint8_t) (*(inbuffer + offset + 0))) << (8 * 0);
@@ -93,7 +129,7 @@ namespace pen_plotter
     }
 
     const char * getType(){ return "pen_plotter/plotter_msg"; };
-    const char * getMD5(){ return "47fd586e4bf446358324813a75c96cef"; };
+    const char * getMD5(){ return "a698afef79647f15a562af1b745c4659"; };
 
   };
 
