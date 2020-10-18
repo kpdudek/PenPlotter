@@ -91,6 +91,7 @@ float setpoint_x = 0.0, tol_x = 0.75;
 float prev_setpoint_x = 0.0;
 float interp_val_x = 0.0;
 float via_point_x = 0.0;
+float error_via_x = 0.0, error_goal_x = 0.0;
 int setpoint_reached_x = 0, via_reached_x = 0;
 
 Motor y_axis_motor = Motor(y_axis_pin_CW,y_axis_pin_CCW);
@@ -99,7 +100,13 @@ float setpoint_y = 0.0, tol_y = 0.75;
 float prev_setpoint_y = 0.0;
 float interp_val_y = 0.0;
 float via_point_y = 0.0;
+float error_via_y = 0.0, error_goal_y = 0.0;
 int setpoint_reached_y = 0, via_reached_y = 0;
+
+float max_x_angle = 900.0, max_y_angle = 900;
+float interpolation_steps = 1.0;
+float max_via_error = max_x_angle/interpolation_steps;
+float kp = 0.033;
 
 Servo pen_servo;
 int servo_angle = -1, retract_angle = 15, draw_angle=0, clearance_angle = 70;
@@ -109,7 +116,7 @@ int loop_count = 0;
 int state = 0, stop_signal = 0;
 int run_once = 0;
 int state_print_count = 0;
-int max_speed = 100, x_speed = 85, y_speed = 85; 
+int max_speed = 150, x_speed = 85, y_speed = 85; 
 int missed_packets = 0;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -197,88 +204,108 @@ void loop() {
     run_once = 0;
   }
   else if (stop_signal==0){
+    /// turn on blue light
     if(run_once == 0){
       digitalWrite(red_light,LOW);
       digitalWrite(blue_light,HIGH);
       run_once = 1;
     }
-    
+
+    /// get loop time
     t = micros();
+
+    /// read and update encoders
     newPosition1 = Enc1.read();
     newPosition2 = Enc2.read();
-
     if (newPosition1 != oldPosition1) {
         oldPosition1 = newPosition1;
         x_axis_angle = 360.*(float(newPosition1)/(12.*120.));
     }
-  
     if (newPosition2 != oldPosition2) {
         oldPosition2 = newPosition2;
         y_axis_angle = 360.*(float(newPosition2)/(12.*120.));
     }
 
+    /// update via_sepoints if the goal has changed
     if (setpoint_x != prev_setpoint_x){
-      interp_val_x = (setpoint_x-prev_setpoint_x)/10.;
+      interp_val_x = (setpoint_x-prev_setpoint_x)/interpolation_steps;
       via_point_x = prev_setpoint_x;
       prev_setpoint_x = setpoint_x;
+      via_reached_x=0;
     }
     if (setpoint_y != prev_setpoint_y){
-      interp_val_y = (setpoint_y-prev_setpoint_y)/10.;
+      interp_val_y = (setpoint_y-prev_setpoint_y)/interpolation_steps;
       via_point_y = prev_setpoint_y;
       prev_setpoint_y = setpoint_y;
+      via_reached_y=0;
     }
 
-    if (t-t_old_motor > motor_freq){
-      if (x_axis_angle < via_point_x - tol_x){
-        x_axis_motor.command(x_speed);
-        setpoint_reached_x = 0;
-        via_reached_x = 0;
+    /// set the motor speeds based on angular error from the via setpoint
+    error_via_x = abs(via_point_x-x_axis_angle);
+    error_via_y = abs(via_point_y-y_axis_angle);
+
+    
+    x_speed = floor(max_speed * (error_via_x*kp));
+    x_speed = constrain(x_speed,50,max_speed);
+
+    y_speed = floor(max_speed * (error_via_y*kp));
+    y_speed = constrain(y_speed,50,max_speed);
+    
+    /// drive motors to the via setpoints
+    if ((x_axis_angle < via_point_x - tol_x)&&(via_reached_x==0)){
+      x_axis_motor.command(x_speed);
+      setpoint_reached_x = 0;
+    }
+    else if ((x_axis_angle > via_point_x + tol_x)&&(via_reached_x==0)){
+      x_axis_motor.command(-x_speed);
+      setpoint_reached_x = 0;
+    }
+    else{
+      x_axis_motor.stop_now();
+      via_reached_x = 1;
+      if((abs(setpoint_x-x_axis_angle) < tol_x)){
+        setpoint_reached_x = 1;
       }
-      else if (x_axis_angle > via_point_x + tol_x){
-        x_axis_motor.command(-x_speed);
-        setpoint_reached_x = 0;
-        via_reached_x = 0;
-      }
-      else{
-        x_axis_motor.stop_now();
-        via_reached_x = 1;
-        if((abs(setpoint_x-x_axis_angle) < tol_x)){
-          setpoint_reached_x = 1;
-        }
-        else if(via_reached_y){ // check if the other axes are done as well
-          via_point_x = via_point_x + interp_val_x;
-          if (abs(via_point_x) > abs(setpoint_x)){
-            via_point_x = setpoint_x;
-          }
-        }
-      }
-  
-      if (y_axis_angle < via_point_y - tol_y){
-        y_axis_motor.command(y_speed);
-        setpoint_reached_y = 0;
-        via_reached_y = 0;
-      }
-      else if (y_axis_angle > via_point_y + tol_y){
-        y_axis_motor.command(-y_speed);
-        setpoint_reached_y = 0;
-        via_reached_y = 0;
-      }
-      else{
-        y_axis_motor.stop_now();
-        via_reached_y = 1;
-        if((abs(setpoint_y-y_axis_angle) < tol_y)){
-          setpoint_reached_y = 1;
-        }
-        else if(via_reached_x){  // check if the other axes are done as well
-          via_point_y = via_point_y + interp_val_y;
-          if (abs(via_point_y) > abs(setpoint_y)){
-            via_point_y = setpoint_y;
-          }
-        }
-      }
-      t_old_motor = t;
     }
 
+    if ((y_axis_angle < via_point_y - tol_y)&&(via_reached_y==0)){
+      y_axis_motor.command(y_speed);
+      setpoint_reached_y = 0;
+    }
+    else if ((y_axis_angle > via_point_y + tol_y)&&(via_reached_y==0)){
+      y_axis_motor.command(-y_speed);
+      setpoint_reached_y = 0;
+    }
+    else{
+      y_axis_motor.stop_now();
+      via_reached_y = 1;
+      if((abs(setpoint_y-y_axis_angle) < tol_y)){
+        setpoint_reached_y = 1;
+      }
+    }
+
+    /// if both motors are at their via setpoint advance to the next via setpoint
+    if ((via_reached_x==1)&&(via_reached_y==1)){
+      // Y via point adjustment
+      if (abs(via_point_y-setpoint_y)>tol_y){
+        via_point_y = via_point_y + interp_val_y;
+      }
+      else{
+        setpoint_reached_y=1;
+      }
+
+      // X via point adjustment
+      if (abs(via_point_x-setpoint_x)>tol_x){
+        via_point_x = via_point_x + interp_val_x;
+      }
+      else{
+        setpoint_reached_x=1;
+      }
+      via_reached_x=0;
+      via_reached_y=0;
+    }
+
+    /// if the gantry has reached its goal, update the flag and hold position
     if ((setpoint_reached_y==1) && (setpoint_reached_x==1) && (state==0)){
       state = 1;
     }
@@ -286,6 +313,7 @@ void loop() {
       state = 0;
     }
 
+    /// Publish data at a fixed frequency
     if (t-t_old_print > print_freq){
       feedback.x_angle = x_axis_angle;
       feedback.y_angle = y_axis_angle;
@@ -297,9 +325,12 @@ void loop() {
       t_old_print = t;
     }
 
+    /// store loop variables
     prev_x_angle = x_axis_angle;
     prev_y_angle = y_axis_angle;
     t_prev = t;
+
+    /// Spin the subscribers
     nh.spinOnce();
   }
 
